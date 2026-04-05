@@ -183,7 +183,7 @@ func (s *Service) List(pr resolver.Identity, opts ListOptions) ([]Thread, error)
 			comments = append(comments, ThreadComment{
 				Author:    author,
 				Body:      c.Body,
-				CreatedAt: c.UpdatedAt.UTC().Format(time.RFC3339),
+				CreatedAt: c.UpdatedAt.UTC().Format(time.RFC3339), // GraphQL returns updatedAt; used as best proxy for comment time
 			})
 		}
 
@@ -374,7 +374,7 @@ func (s *Service) changeResolution(pr resolver.Identity, opts ActionOptions, res
 	}
 
 	if resolve {
-		return s.performResolve(threadID, strings.TrimSpace(opts.Commit), pr.Owner, pr.Repo)
+		return s.performResolve(threadID, strings.TrimSpace(opts.Commit), pr.Host, pr.Owner, pr.Repo)
 	}
 	return s.performUnresolve(threadID)
 }
@@ -400,10 +400,14 @@ type threadDetails struct {
 	ViewerCanUnresolve bool   `json:"viewerCanUnresolve"`
 }
 
-func (s *Service) performResolve(threadID, commit, owner, repo string) (ActionResult, error) {
+func (s *Service) performResolve(threadID, commit, host, owner, repo string) (ActionResult, error) {
 	var replyBody string
 	if commit != "" {
-		commitURL := fmt.Sprintf("https://github.com/%s/%s/commit/%s", owner, repo, commit)
+		commitHost := host
+		if commitHost == "" {
+			commitHost = "github.com"
+		}
+		commitURL := fmt.Sprintf("https://%s/%s/%s/commit/%s", commitHost, owner, repo, commit)
 		replyBody = fmt.Sprintf("Addressed in [`%s`](%s)", commit, commitURL)
 		replyVars := map[string]interface{}{
 			"threadId": threadID,

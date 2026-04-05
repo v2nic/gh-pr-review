@@ -36,7 +36,7 @@ func newReviewViewCommand() *cobra.Command {
 	cmd.Flags().IntVar(&opts.TailReplies, "tail", 0, "Limit to the last N replies per thread (0 = all)")
 	cmd.Flags().BoolVar(&opts.IncludeCommentNodeID, "include-comment-node-id", false, "Include comment_node_id fields for parent comments and replies")
 	cmd.Flags().StringVar(&opts.Author, "author", "", "Filter threads to those containing a comment by this author login (case-insensitive)")
-	cmd.Flags().BoolVar(&opts.All, "include-resolved", false, "Include resolved threads (overrides --unresolved)")
+	cmd.Flags().BoolVar(&opts.IncludeResolved, "include-resolved", false, "Include resolved threads (overrides --unresolved)")
 
 	return cmd
 }
@@ -52,7 +52,7 @@ type reviewViewOptions struct {
 	TailReplies          int
 	IncludeCommentNodeID bool
 	Author               string
-	All                  bool
+	IncludeResolved      bool
 }
 
 func runReviewView(cmd *cobra.Command, opts *reviewViewOptions) error {
@@ -87,7 +87,7 @@ func runReviewView(cmd *cobra.Command, opts *reviewViewOptions) error {
 		TailReplies:          opts.TailReplies,
 		IncludeCommentNodeID: opts.IncludeCommentNodeID,
 		Author:               strings.TrimSpace(opts.Author),
-		IncludeResolved:      opts.All,
+		IncludeResolved:      opts.IncludeResolved,
 	})
 	if err != nil {
 		return err
