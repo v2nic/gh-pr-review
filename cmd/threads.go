@@ -41,6 +41,7 @@ func newThreadsListCommand() *cobra.Command {
 
 	cmd.Flags().BoolVar(&opts.UnresolvedOnly, "unresolved", false, "Filter to unresolved threads only")
 	cmd.Flags().BoolVar(&opts.MineOnly, "mine", false, "Show only threads involving or resolvable by the viewer")
+	cmd.Flags().StringVar(&opts.Author, "author", "", "Filter threads to those containing a comment by this author login (case-insensitive)")
 	cmd.PersistentFlags().StringVarP(&opts.Repo, "repo", "R", "", "Repository in 'owner/repo' format")
 	cmd.PersistentFlags().IntVar(&opts.Pull, "pr", 0, "Pull request number")
 
@@ -53,6 +54,7 @@ type threadsListOptions struct {
 	Selector       string
 	UnresolvedOnly bool
 	MineOnly       bool
+	Author         string
 }
 
 func runThreadsList(cmd *cobra.Command, opts *threadsListOptions) error {
@@ -71,6 +73,7 @@ func runThreadsList(cmd *cobra.Command, opts *threadsListOptions) error {
 	payload, err := service.List(identity, threads.ListOptions{
 		OnlyUnresolved: opts.UnresolvedOnly,
 		MineOnly:       opts.MineOnly,
+		Author:         strings.TrimSpace(opts.Author),
 	})
 	if err != nil {
 		return err
@@ -118,6 +121,9 @@ func newThreadsMutationCommand(resolve bool) *cobra.Command {
 	cmd.Flags().StringVar(&opts.ThreadID, "thread-id", "", "GraphQL node ID for the review thread")
 	cmd.PersistentFlags().StringVarP(&opts.Repo, "repo", "R", "", "Repository in 'owner/repo' format")
 	cmd.PersistentFlags().IntVar(&opts.Pull, "pr", 0, "Pull request number")
+	if resolve {
+		cmd.Flags().StringVar(&opts.Commit, "commit", "", "Post a reply linking to this commit SHA before resolving")
+	}
 
 	return cmd
 }
@@ -127,6 +133,7 @@ type threadsMutationOptions struct {
 	Pull     int
 	Selector string
 	ThreadID string
+	Commit   string
 }
 
 func (o *threadsMutationOptions) Validate() error {
@@ -157,7 +164,7 @@ func runThreadsMutation(cmd *cobra.Command, opts *threadsMutationOptions, resolv
 	}
 
 	service := threads.NewService(apiClientFactory(identity.Host))
-	action := threads.ActionOptions{ThreadID: strings.TrimSpace(opts.ThreadID)}
+	action := threads.ActionOptions{ThreadID: strings.TrimSpace(opts.ThreadID), Commit: strings.TrimSpace(opts.Commit)}
 
 	var result threads.ActionResult
 	if resolve {

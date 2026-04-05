@@ -25,6 +25,7 @@ func NewService(api ghcli.API) *Service {
 type ListOptions struct {
 	OnlyUnresolved bool
 	MineOnly       bool
+	Author         string
 }
 
 // Thread represents a normalized review thread payload for JSON output.
@@ -41,6 +42,7 @@ type Thread struct {
 // ActionOptions controls resolve/unresolve operations.
 type ActionOptions struct {
 	ThreadID string
+	Commit   string
 }
 
 // ActionResult captures the outcome of a resolve/unresolve mutation.
@@ -79,6 +81,9 @@ func (s *Service) List(pr resolver.Identity, opts ListOptions) ([]Thread, error)
 			hasStamp bool
 		)
 
+		authorFilter := strings.ToLower(strings.TrimSpace(opts.Author))
+		authorMatched := authorFilter == ""
+
 		for _, comment := range node.Comments.Nodes {
 			if comment.ViewerDidAuthor {
 				mine = true
@@ -87,6 +92,13 @@ func (s *Service) List(pr resolver.Identity, opts ListOptions) ([]Thread, error)
 				latest = comment.UpdatedAt
 				hasStamp = true
 			}
+			if !authorMatched && comment.Author != nil && strings.ToLower(comment.Author.Login) == authorFilter {
+				authorMatched = true
+			}
+		}
+
+		if !authorMatched {
+			continue
 		}
 
 		if opts.MineOnly && !mine {
@@ -182,6 +194,9 @@ type threadNode struct {
 			ViewerDidAuthor bool      `json:"viewerDidAuthor"`
 			UpdatedAt       time.Time `json:"updatedAt"`
 			DatabaseID      int64     `json:"databaseId"`
+			Author          *struct {
+				Login string `json:"login"`
+			} `json:"author"`
 		} `json:"nodes"`
 	} `json:"comments"`
 }
@@ -293,7 +308,7 @@ func (s *Service) changeResolution(pr resolver.Identity, opts ActionOptions, res
 	}
 
 	if resolve {
-		return s.performResolve(threadID)
+		return s.performResolve(threadID, strings.TrimSpace(opts.Commit))
 	}
 	return s.performUnresolve(threadID)
 }
@@ -319,7 +334,18 @@ type threadDetails struct {
 	ViewerCanUnresolve bool   `json:"viewerCanUnresolve"`
 }
 
-func (s *Service) performResolve(threadID string) (ActionResult, error) {
+func (s *Service) performResolve(threadID, commit string) (ActionResult, error) {
+	if commit != "" {
+		body := fmt.Sprintf("Addressed in `%s`", commit)
+		replyVars := map[string]interface{}{
+			"threadId": threadID,
+			"body":     body,
+		}
+		if err := s.API.GraphQL(addThreadReplyMutation, replyVars, nil); err != nil {
+			return ActionResult{}, fmt.Errorf("post commit reply: %w", err)
+		}
+	}
+
 	variables := map[string]interface{}{"threadId": threadID}
 	var resp struct {
 		Resolve struct {
@@ -370,6 +396,7 @@ query Threads($id: ID!, $after: String) {
               databaseId
               viewerDidAuthor
               updatedAt
+              author { login }
             }
           }
         }
@@ -413,6 +440,16 @@ mutation UnresolveThread($threadId: ID!) {
     thread {
       id
       isResolved
+    }
+  }
+}
+`
+
+const addThreadReplyMutation = `
+mutation AddThreadReply($threadId: ID!, $body: String!) {
+  addPullRequestReviewThreadReply(input: {pullRequestReviewThreadId: $threadId, body: $body}) {
+    comment {
+      id
     }
   }
 }
