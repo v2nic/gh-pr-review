@@ -193,7 +193,14 @@ func runThreadsMutation(cmd *cobra.Command, opts *threadsMutationOptions, resolv
 	}
 
 	service := threads.NewService(apiClientFactory(identity.Host))
-	action := threads.ActionOptions{ThreadID: strings.TrimSpace(opts.ThreadID), Commit: strings.TrimSpace(opts.Commit)}
+	commit := strings.TrimSpace(opts.Commit)
+	if commit != "" {
+		commit, err = resolveCommitRef(commit)
+		if err != nil {
+			return fmt.Errorf("--commit: %w", err)
+		}
+	}
+	action := threads.ActionOptions{ThreadID: strings.TrimSpace(opts.ThreadID), Commit: commit}
 
 	var result threads.ActionResult
 	if resolve {

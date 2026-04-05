@@ -362,3 +362,75 @@ func TestThreadsListOutputIDs(t *testing.T) {
 	assert.Equal(t, "T_alpha", lines[0])
 	assert.Equal(t, "T_beta", lines[1])
 }
+
+// F6: resolveCommitRef unit tests
+
+func TestResolveCommitRefPassthroughHexSHA(t *testing.T) {
+	// A valid hex SHA should be returned unchanged without calling git.
+	sha := "abc1234"
+	got, err := resolveCommitRef(sha)
+	require.NoError(t, err)
+	assert.Equal(t, sha, got)
+}
+
+func TestResolveCommitRefFullSHA(t *testing.T) {
+	sha := "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+	got, err := resolveCommitRef(sha)
+	require.NoError(t, err)
+	assert.Equal(t, sha, got)
+}
+
+func TestResolveCommandWithHexSHACommit(t *testing.T) {
+	originalFactory := apiClientFactory
+	defer func() { apiClientFactory = originalFactory }()
+
+	var capturedBody string
+	fake := &commandFakeAPI{}
+	fake.restFunc = func(method, path string, params map[string]string, body interface{}, result interface{}) error {
+		return errors.New("unexpected REST call")
+	}
+	fake.graphqlFunc = func(query string, variables map[string]interface{}, result interface{}) error {
+		switch {
+		case strings.Contains(query, "ThreadDetails"):
+			return assignJSON(result, map[string]interface{}{
+				"node": map[string]interface{}{
+					"id":                 "T_sha",
+					"isResolved":         false,
+					"viewerCanResolve":   true,
+					"viewerCanUnresolve": false,
+				},
+			})
+		case strings.Contains(query, "addPullRequestReviewThreadReply"):
+			if b, ok := variables["body"].(string); ok {
+				capturedBody = b
+			}
+			return nil
+		case strings.Contains(query, "resolveReviewThread"):
+			return assignJSON(result, map[string]interface{}{
+				"resolveReviewThread": map[string]interface{}{
+					"thread": map[string]interface{}{"id": "T_sha", "isResolved": true},
+				},
+			})
+		default:
+			return errors.New("unexpected query")
+		}
+	}
+	apiClientFactory = func(host string) ghcli.API { return fake }
+
+	root := newRootCommand()
+	stdout := &bytes.Buffer{}
+	root.SetOut(stdout)
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"threads", "resolve", "--thread-id", "T_sha", "--commit", "abc1234", "--repo", "octo/demo", "9"})
+
+	err := root.Execute()
+	require.NoError(t, err)
+
+	assert.Contains(t, capturedBody, "abc1234")
+
+	var payload map[string]interface{}
+	require.NoError(t, json.Unmarshal(stdout.Bytes(), &payload))
+	assert.Equal(t, "T_sha", payload["thread_node_id"])
+	assert.Equal(t, true, payload["is_resolved"])
+	assert.Contains(t, payload["reply_body"], "abc1234")
+}
