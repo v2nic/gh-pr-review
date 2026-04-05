@@ -136,7 +136,7 @@ func (s *Service) List(pr resolver.Identity, opts ListOptions) ([]Thread, error)
 				latest = comment.UpdatedAt
 				hasStamp = true
 			}
-			if !authorMatched && comment.Author != nil && strings.ToLower(comment.Author.Login) == authorFilter {
+				if !authorMatched && comment.Author != nil && strings.Contains(strings.ToLower(comment.Author.Login), authorFilter) {
 				authorMatched = true
 			}
 		}
