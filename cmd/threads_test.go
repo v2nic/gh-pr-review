@@ -295,3 +295,13 @@ func TestThreadsResolveAllCommand(t *testing.T) {
 	assert.Equal(t, "TBulk1", payload[0]["thread_node_id"])
 	assert.Equal(t, true, payload[0]["is_resolved"])
 }
+
+func TestThreadsListSinceInvalidTimestamp(t *testing.T) {
+	root := newRootCommand()
+	root.SetOut(&bytes.Buffer{})
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"threads", "list", "--repo", "octo/demo", "--since", "not-a-timestamp", "5"})
+	err := root.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--since")
+}

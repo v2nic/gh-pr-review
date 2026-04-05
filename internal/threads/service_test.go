@@ -672,3 +672,48 @@ func TestResolveAllContinuesOnError(t *testing.T) {
 	assert.False(t, byID["T_fail"].IsResolved)
 	assert.True(t, byID["T_ok"].IsResolved)
 }
+
+// ─── F3: --since filter test ──────────────────────────────────────────────────
+
+func TestServiceListSinceFiltersOldThreads(t *testing.T) {
+	svc := &Service{}
+
+	old := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	recent := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	cutoff := time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)
+
+	svc.API = &fakeAPI{
+		restFunc: restStub(t, "octo", "demo", "octo/demo", 9, "PR_since", nil),
+		graphqlFunc: func(query string, variables map[string]interface{}, result interface{}) error {
+			return assign(result, map[string]interface{}{
+				"node": map[string]interface{}{
+					"reviewThreads": map[string]interface{}{
+						"nodes": []map[string]interface{}{
+							{
+								"id": "T_old", "isResolved": false, "isOutdated": false, "path": "old.go",
+								"viewerCanResolve": false, "viewerCanUnresolve": false,
+								"comments": map[string]interface{}{"nodes": []map[string]interface{}{
+									{"viewerDidAuthor": false, "updatedAt": old, "databaseId": 1},
+								}},
+							},
+							{
+								"id": "T_recent", "isResolved": false, "isOutdated": false, "path": "new.go",
+								"viewerCanResolve": false, "viewerCanUnresolve": false,
+								"comments": map[string]interface{}{"nodes": []map[string]interface{}{
+									{"viewerDidAuthor": false, "updatedAt": recent, "databaseId": 2},
+								}},
+							},
+						},
+						"pageInfo": map[string]interface{}{"hasNextPage": false, "endCursor": ""},
+					},
+				},
+			})
+		},
+	}
+
+	identity := resolver.Identity{Owner: "octo", Repo: "demo", Number: 9}
+	results, err := svc.List(identity, ListOptions{Since: cutoff})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	assert.Equal(t, "T_recent", results[0].ThreadID)
+}

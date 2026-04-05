@@ -26,6 +26,7 @@ type ListOptions struct {
 	OnlyUnresolved bool
 	MineOnly       bool
 	Author         string
+	Since          time.Time // if non-zero, only include threads with updatedAt >= Since
 }
 
 // Thread represents a normalized review thread payload for JSON output.
@@ -142,6 +143,12 @@ func (s *Service) List(pr resolver.Identity, opts ListOptions) ([]Thread, error)
 		if opts.MineOnly && !mine {
 			continue
 		}
+
+		// Since filter: skip threads whose latest comment is before the cutoff
+		if !opts.Since.IsZero() && (!hasStamp || latest.Before(opts.Since)) {
+			continue
+		}
+
 
 		var resolvedBy *string
 		if node.ResolvedBy != nil && node.ResolvedBy.Login != "" {

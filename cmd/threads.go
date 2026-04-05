@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -46,6 +47,7 @@ func newThreadsListCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&opts.UnresolvedOnly, "unresolved", false, "Filter to unresolved threads only")
 	cmd.Flags().BoolVar(&opts.MineOnly, "mine", false, "Show only threads involving or resolvable by the viewer")
 	cmd.Flags().StringVar(&opts.Author, "author", "", "Filter threads to those containing a comment by this author login (case-insensitive)")
+	cmd.Flags().StringVar(&opts.Since, "since", "", "Only include threads updated at or after this RFC3339 timestamp")
 	cmd.PersistentFlags().StringVarP(&opts.Repo, "repo", "R", "", "Repository in 'owner/repo' format")
 	cmd.PersistentFlags().IntVar(&opts.Pull, "pr", 0, "Pull request number")
 
@@ -59,7 +61,9 @@ type threadsListOptions struct {
 	UnresolvedOnly bool
 	MineOnly       bool
 	Author         string
+	Since          string
 }
+
 
 func runThreadsList(cmd *cobra.Command, opts *threadsListOptions) error {
 	selector, err := resolver.NormalizeSelector(opts.Selector, opts.Pull)
@@ -73,12 +77,22 @@ func runThreadsList(cmd *cobra.Command, opts *threadsListOptions) error {
 		return err
 	}
 
-	service := threads.NewService(apiClientFactory(identity.Host))
-	payload, err := service.List(identity, threads.ListOptions{
+	listOpts := threads.ListOptions{
 		OnlyUnresolved: opts.UnresolvedOnly,
 		MineOnly:       opts.MineOnly,
 		Author:         strings.TrimSpace(opts.Author),
-	})
+	}
+
+	if opts.Since != "" {
+		t, err := time.Parse(time.RFC3339, opts.Since)
+		if err != nil {
+			return fmt.Errorf("--since: invalid RFC3339 timestamp %q: %w", opts.Since, err)
+		}
+		listOpts.Since = t
+	}
+
+	service := threads.NewService(apiClientFactory(identity.Host))
+	payload, err := service.List(identity, listOpts)
 	if err != nil {
 		return err
 	}
