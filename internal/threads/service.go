@@ -59,6 +59,7 @@ type ActionResult struct {
 	ThreadNodeID string `json:"thread_node_id"`
 	IsResolved   bool   `json:"is_resolved"`
 	ReplyBody    string `json:"reply_body,omitempty"`
+	Error        string `json:"error,omitempty"`
 }
 
 
@@ -82,9 +83,12 @@ func (s *Service) ResolveAll(pr resolver.Identity, opts ResolveAllOptions) ([]Ac
 
 	results := make([]ActionResult, 0, len(ts))
 	for _, t := range ts {
-		res, err := s.performResolve(t.ThreadID, strings.TrimSpace(opts.Commit), pr.Owner, pr.Repo)
+		res, err := s.changeResolution(pr, ActionOptions{
+			ThreadID: t.ThreadID,
+			Commit:   strings.TrimSpace(opts.Commit),
+		}, true)
 		if err != nil {
-			results = append(results, ActionResult{ThreadNodeID: t.ThreadID, IsResolved: false})
+			results = append(results, ActionResult{ThreadNodeID: t.ThreadID, IsResolved: false, Error: err.Error()})
 			continue
 		}
 		results = append(results, res)

@@ -589,6 +589,16 @@ func TestResolveAllResolvesUnresolvedThreads(t *testing.T) {
 						},
 					},
 				})
+			case threadDetailsQuery:
+				threadID := variables["id"].(string)
+				return assign(result, map[string]interface{}{
+					"node": map[string]interface{}{
+						"id":                 threadID,
+						"isResolved":         false,
+						"viewerCanResolve":   true,
+						"viewerCanUnresolve": false,
+					},
+				})
 			case resolveThreadMutation:
 				threadID := variables["threadId"].(string)
 				resolvedIDs = append(resolvedIDs, threadID)
@@ -643,6 +653,16 @@ func TestResolveAllContinuesOnError(t *testing.T) {
 							},
 							"pageInfo": map[string]interface{}{"hasNextPage": false, "endCursor": ""},
 						},
+					},
+				})
+			case threadDetailsQuery:
+				threadID := variables["id"].(string)
+				return assign(result, map[string]interface{}{
+					"node": map[string]interface{}{
+						"id":                 threadID,
+						"isResolved":         false,
+						"viewerCanResolve":   true,
+						"viewerCanUnresolve": false,
 					},
 				})
 			case resolveThreadMutation:

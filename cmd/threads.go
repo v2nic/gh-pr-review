@@ -212,7 +212,6 @@ func runThreadsMutation(cmd *cobra.Command, opts *threadsMutationOptions, resolv
 		return err
 	}
 	return encodeJSON(cmd, result)
-	return encodeJSON(cmd, result)
 }
 
 
@@ -234,7 +233,7 @@ func newThreadsResolveAllCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&opts.Author, "author", "", "Only resolve threads by this author")
 	cmd.Flags().StringVar(&opts.Commit, "commit", "", "Attach commit SHA to each resolution reply")
-	cmd.Flags().BoolVar(&opts.Unresolved, "unresolved", true, "Only resolve unresolved threads (default true)")
+	cmd.Flags().BoolVar(&opts.IncludeResolved, "include-resolved", false, "Also resolve already-resolved threads")
 	cmd.PersistentFlags().StringVarP(&opts.Repo, "repo", "R", "", "Repository in 'owner/repo' format (required)")
 	cmd.PersistentFlags().IntVar(&opts.Pull, "pr", 0, "Pull request number")
 
@@ -247,7 +246,7 @@ type threadsResolveAllOptions struct {
 	Selector   string
 	Author     string
 	Commit     string
-	Unresolved bool
+	IncludeResolved bool
 }
 
 func runThreadsResolveAll(cmd *cobra.Command, opts *threadsResolveAllOptions) error {
@@ -274,7 +273,7 @@ func runThreadsResolveAll(cmd *cobra.Command, opts *threadsResolveAllOptions) er
 	results, err := service.ResolveAll(identity, threads.ResolveAllOptions{
 		Author:     strings.TrimSpace(opts.Author),
 		Commit:     commit,
-		Unresolved: opts.Unresolved,
+		Unresolved: !opts.IncludeResolved,
 	})
 	if err != nil {
 		return err
@@ -284,13 +283,13 @@ func runThreadsResolveAll(cmd *cobra.Command, opts *threadsResolveAllOptions) er
 
 // resolveCommitRef converts symbolic git refs (e.g. HEAD, branch names) to
 // short SHAs. If ref already looks like a hex SHA it is returned unchanged.
-var hexSHARe = regexp.MustCompile(`^[0-9a-f]{7,40}$`)
+var hexSHARe = regexp.MustCompile(`(?i)^[0-9a-f]{7,40}$`)
 
 func resolveCommitRef(ref string) (string, error) {
 	if hexSHARe.MatchString(ref) {
 		return ref, nil
 	}
-	out, err := exec.Command("git", "rev-parse", "--short", ref).Output()
+	out, err := exec.Command("git", "rev-parse", "--short", "--", ref).Output()
 	if err != nil {
 		return "", fmt.Errorf("cannot resolve git ref %q: %w", ref, err)
 	}

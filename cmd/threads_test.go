@@ -266,7 +266,15 @@ func TestThreadsResolveAllCommand(t *testing.T) {
 					},
 				},
 			})
-		case strings.Contains(query, "resolveReviewThread"):
+			case strings.Contains(query, "ThreadDetails"):
+				threadID, _ := variables["id"].(string)
+				return assignJSON(result, map[string]interface{}{
+					"node": map[string]interface{}{
+						"id": threadID, "isResolved": false,
+						"viewerCanResolve": true, "viewerCanUnresolve": false,
+					},
+				})
+			case strings.Contains(query, "resolveReviewThread"):
 			return assignJSON(result, map[string]interface{}{
 				"resolveReviewThread": map[string]interface{}{
 					"thread": map[string]interface{}{"id": "TBulk1", "isResolved": true},
