@@ -154,6 +154,8 @@ func newThreadsMutationCommand(resolve bool) *cobra.Command {
 	cmd.PersistentFlags().IntVar(&opts.Pull, "pr", 0, "Pull request number")
 	if resolve {
 		cmd.Flags().StringVar(&opts.Commit, "commit", "", "Post a reply linking to this commit SHA before resolving")
+		cmd.Flags().StringVar(&opts.React, "react", "", "Add a reaction to the first comment (thumbs_up, thumbs_down, laugh, hooray, confused, heart, rocket, eyes)")
+		cmd.Flags().StringVar(&opts.Message, "message", "", "Post a reply message before resolving (used with --react thumbs_down)")
 	}
 
 	return cmd
@@ -165,16 +167,26 @@ type threadsMutationOptions struct {
 	Selector string
 	ThreadID string
 	Commit   string
+	React    string
+	Message  string
 }
 
 func (o *threadsMutationOptions) Validate() error {
 	if strings.TrimSpace(o.ThreadID) == "" {
 		return errors.New("--thread-id is required")
 	}
+	if o.React != "" {
+		if _, ok := threads.ValidReactions[o.React]; !ok {
+			return fmt.Errorf("--react: invalid reaction %q; valid values: thumbs_up, thumbs_down, laugh, hooray, confused, heart, rocket, eyes", o.React)
+		}
+	}
 	return nil
 }
 
 func runThreadsResolve(cmd *cobra.Command, opts *threadsMutationOptions) error {
+	if opts.Commit == "" && opts.React != "thumbs_down" {
+		return fmt.Errorf("must provide --commit (bug was fixed) or --react thumbs_down --message 'reason' (not a bug)")
+	}
 	return runThreadsMutation(cmd, opts, true)
 }
 
@@ -204,7 +216,16 @@ func runThreadsMutation(cmd *cobra.Command, opts *threadsMutationOptions, resolv
 			return fmt.Errorf("--commit: %w", err)
 		}
 	}
-	action := threads.ActionOptions{ThreadID: strings.TrimSpace(opts.ThreadID), Commit: commit}
+	var reaction string
+	if opts.React != "" {
+		reaction = threads.ValidReactions[opts.React]
+	}
+	action := threads.ActionOptions{
+		ThreadID: strings.TrimSpace(opts.ThreadID),
+		Commit:   commit,
+		React:    reaction,
+		Message:  strings.TrimSpace(opts.Message),
+	}
 
 	var result threads.ActionResult
 	if resolve {
@@ -237,6 +258,7 @@ func newThreadsResolveAllCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&opts.Author, "author", "", "Only resolve threads by this author")
 	cmd.Flags().StringVar(&opts.Commit, "commit", "", "Attach commit SHA to each resolution reply")
+	cmd.Flags().StringVar(&opts.React, "react", "", "Add a reaction to each thread's first comment after resolving (thumbs_up, thumbs_down, laugh, hooray, confused, heart, rocket, eyes)")
 	cmd.Flags().BoolVar(&opts.IncludeResolved, "include-resolved", false, "Also resolve already-resolved threads")
 	cmd.PersistentFlags().StringVarP(&opts.Repo, "repo", "R", "", "Repository in 'owner/repo' format (required)")
 	cmd.PersistentFlags().IntVar(&opts.Pull, "pr", 0, "Pull request number")
@@ -245,15 +267,26 @@ func newThreadsResolveAllCommand() *cobra.Command {
 }
 
 type threadsResolveAllOptions struct {
-	Repo       string
-	Pull       int
-	Selector   string
-	Author     string
-	Commit     string
+	Repo            string
+	Pull            int
+	Selector        string
+	Author          string
+	Commit          string
+	React           string
 	IncludeResolved bool
 }
 
 func runThreadsResolveAll(cmd *cobra.Command, opts *threadsResolveAllOptions) error {
+	if opts.Commit == "" {
+		return fmt.Errorf("--commit is required for resolve-all")
+	}
+
+	if opts.React != "" {
+		if _, ok := threads.ValidReactions[opts.React]; !ok {
+			return fmt.Errorf("--react: invalid reaction %q; valid values: thumbs_up, thumbs_down, laugh, hooray, confused, heart, rocket, eyes", opts.React)
+		}
+	}
+
 	inferPR(opts.Selector, &opts.Pull)
 	selector, err := resolver.NormalizeSelector(opts.Selector, opts.Pull)
 	if err != nil {
@@ -275,10 +308,16 @@ func runThreadsResolveAll(cmd *cobra.Command, opts *threadsResolveAllOptions) er
 		}
 	}
 
+	var reaction string
+	if opts.React != "" {
+		reaction = threads.ValidReactions[opts.React]
+	}
+
 	service := threads.NewService(apiClientFactory(identity.Host))
 	results, err := service.ResolveAll(identity, threads.ResolveAllOptions{
 		Author:     strings.TrimSpace(opts.Author),
 		Commit:     commit,
+		React:      reaction,
 		Unresolved: !opts.IncludeResolved,
 	})
 	if err != nil {

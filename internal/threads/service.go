@@ -52,6 +52,8 @@ type ThreadComment struct {
 type ActionOptions struct {
 	ThreadID string
 	Commit   string
+	React    string // reaction to add to first comment (e.g. "THUMBS_UP")
+	Message  string // optional reply message posted before resolving
 }
 
 // ActionResult captures the outcome of a resolve/unresolve mutation.
@@ -59,6 +61,7 @@ type ActionResult struct {
 	ThreadNodeID string `json:"thread_node_id"`
 	IsResolved   bool   `json:"is_resolved"`
 	ReplyBody    string `json:"reply_body,omitempty"`
+	Reaction     string `json:"reaction,omitempty"`
 	Error        string `json:"error,omitempty"`
 }
 
@@ -67,6 +70,7 @@ type ActionResult struct {
 type ResolveAllOptions struct {
 	Author     string // only resolve threads started by this author
 	Commit     string // attach commit link to each resolution
+	React      string // reaction to add to first comment (GraphQL enum value)
 	Unresolved bool   // only resolve currently-unresolved threads (default true)
 }
 
@@ -86,6 +90,7 @@ func (s *Service) ResolveAll(pr resolver.Identity, opts ResolveAllOptions) ([]Ac
 		res, err := s.changeResolution(pr, ActionOptions{
 			ThreadID: t.ThreadID,
 			Commit:   strings.TrimSpace(opts.Commit),
+			React:    opts.React,
 		}, true)
 		if err != nil {
 			results = append(results, ActionResult{ThreadNodeID: t.ThreadID, IsResolved: false, Error: err.Error()})
@@ -375,7 +380,21 @@ func (s *Service) changeResolution(pr resolver.Identity, opts ActionOptions, res
 	}
 
 	if resolve {
-		return s.performResolve(threadID, strings.TrimSpace(opts.Commit), pr.Host, pr.Owner, pr.Repo)
+		result, err := s.performResolve(threadID, strings.TrimSpace(opts.Commit), strings.TrimSpace(opts.Message), pr.Host, pr.Owner, pr.Repo)
+		if err != nil {
+			return ActionResult{}, err
+		}
+		// Add reaction to first comment if requested
+		if opts.React != "" {
+			commentID := thread.FirstCommentID()
+			if commentID != "" {
+				if err := s.React(commentID, opts.React); err != nil {
+					return ActionResult{}, fmt.Errorf("add reaction: %w", err)
+				}
+				result.Reaction = opts.React
+			}
+		}
+		return result, nil
 	}
 	return s.performUnresolve(threadID)
 }
@@ -399,24 +418,51 @@ type threadDetails struct {
 	IsResolved         bool   `json:"isResolved"`
 	ViewerCanResolve   bool   `json:"viewerCanResolve"`
 	ViewerCanUnresolve bool   `json:"viewerCanUnresolve"`
+	Comments           struct {
+		Nodes []struct {
+			ID string `json:"id"`
+		} `json:"nodes"`
+	} `json:"comments"`
 }
 
-func (s *Service) performResolve(threadID, commit, host, owner, repo string) (ActionResult, error) {
+// FirstCommentID returns the node ID of the first comment in the thread, or empty string.
+func (d *threadDetails) FirstCommentID() string {
+	if len(d.Comments.Nodes) > 0 {
+		return d.Comments.Nodes[0].ID
+	}
+	return ""
+}
+
+func (s *Service) performResolve(threadID, commit, message, host, owner, repo string) (ActionResult, error) {
 	var replyBody string
+
+	// Post message reply first if provided (e.g. thumbs_down explanation)
+	if message != "" {
+		replyVars := map[string]interface{}{
+			"threadId": threadID,
+			"body":     message,
+		}
+		if err := s.API.GraphQL(addThreadReplyMutation, replyVars, nil); err != nil {
+			return ActionResult{}, fmt.Errorf("post message reply: %w", err)
+		}
+		replyBody = message
+	}
+
 	if commit != "" {
 		commitHost := host
 		if commitHost == "" {
 			commitHost = "github.com"
 		}
 		commitURL := fmt.Sprintf("https://%s/%s/%s/commit/%s", commitHost, owner, repo, commit)
-		replyBody = fmt.Sprintf("Addressed in [`%s`](%s)", commit, commitURL)
+		commitReply := fmt.Sprintf("Addressed in [`%s`](%s)", commit, commitURL)
 		replyVars := map[string]interface{}{
 			"threadId": threadID,
-			"body":     replyBody,
+			"body":     commitReply,
 		}
 		if err := s.API.GraphQL(addThreadReplyMutation, replyVars, nil); err != nil {
 			return ActionResult{}, fmt.Errorf("post commit reply: %w", err)
 		}
+		replyBody = commitReply
 	}
 
 	variables := map[string]interface{}{"threadId": threadID}
@@ -493,6 +539,9 @@ query ThreadDetails($id: ID!) {
       isResolved
       viewerCanResolve
       viewerCanUnresolve
+      comments(first: 1) {
+        nodes { id }
+      }
     }
   }
 }
@@ -529,3 +578,33 @@ mutation AddThreadReply($threadId: ID!, $body: String!) {
   }
 }
 `
+const addReactionMutation = `
+mutation AddReaction($subjectId: ID!, $content: ReactionContent!) {
+  addReaction(input: {subjectId: $subjectId, content: $content}) {
+    reaction {
+      content
+    }
+  }
+}
+`
+
+// ValidReactions maps CLI-friendly reaction names to GitHub GraphQL ReactionContent enum values.
+var ValidReactions = map[string]string{
+	"thumbs_up":   "THUMBS_UP",
+	"thumbs_down": "THUMBS_DOWN",
+	"laugh":       "LAUGH",
+	"hooray":      "HOORAY",
+	"confused":    "CONFUSED",
+	"heart":       "HEART",
+	"rocket":      "ROCKET",
+	"eyes":        "EYES",
+}
+
+// React adds a reaction to a comment identified by its node ID.
+func (s *Service) React(commentID, reaction string) error {
+	variables := map[string]interface{}{
+		"subjectId": commentID,
+		"content":   reaction,
+	}
+	return s.API.GraphQL(addReactionMutation, variables, nil)
+}

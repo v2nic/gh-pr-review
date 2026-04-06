@@ -118,9 +118,16 @@ func TestThreadsResolveCommandByThreadID(t *testing.T) {
 					"isResolved":         false,
 					"viewerCanResolve":   true,
 					"viewerCanUnresolve": true,
+					"comments": map[string]interface{}{
+						"nodes": []map[string]interface{}{
+							{"id": "C_first"},
+						},
+					},
 				},
 			}
 			return assignJSON(result, payload)
+		case strings.Contains(query, "addPullRequestReviewThreadReply"):
+			return nil
 		case strings.Contains(query, "resolveReviewThread"):
 			payload := map[string]interface{}{
 				"resolveReviewThread": map[string]interface{}{
@@ -142,7 +149,7 @@ func TestThreadsResolveCommandByThreadID(t *testing.T) {
 	stderr := &bytes.Buffer{}
 	root.SetOut(stdout)
 	root.SetErr(stderr)
-	root.SetArgs([]string{"threads", "resolve", "--thread-id", "T_thread", "--repo", "octo/demo", "9"})
+	root.SetArgs([]string{"threads", "resolve", "--thread-id", "T_thread", "--commit", "abc1234", "--repo", "octo/demo", "9"})
 
 	err := root.Execute()
 	require.NoError(t, err)
@@ -152,6 +159,7 @@ func TestThreadsResolveCommandByThreadID(t *testing.T) {
 	require.NoError(t, json.Unmarshal(stdout.Bytes(), &payload))
 	assert.Equal(t, "T_thread", payload["thread_node_id"])
 	assert.Equal(t, true, payload["is_resolved"])
+	assert.Contains(t, payload["reply_body"], "abc1234")
 }
 
 func TestThreadsUnresolveCommandByThreadID(t *testing.T) {
@@ -272,8 +280,15 @@ func TestThreadsResolveAllCommand(t *testing.T) {
 					"node": map[string]interface{}{
 						"id": threadID, "isResolved": false,
 						"viewerCanResolve": true, "viewerCanUnresolve": false,
+						"comments": map[string]interface{}{
+							"nodes": []map[string]interface{}{
+								{"id": "C_bulk_first"},
+							},
+						},
 					},
 				})
+			case strings.Contains(query, "addPullRequestReviewThreadReply"):
+				return nil
 			case strings.Contains(query, "resolveReviewThread"):
 			return assignJSON(result, map[string]interface{}{
 				"resolveReviewThread": map[string]interface{}{
@@ -291,7 +306,7 @@ func TestThreadsResolveAllCommand(t *testing.T) {
 	stderr := &bytes.Buffer{}
 	root.SetOut(stdout)
 	root.SetErr(stderr)
-	root.SetArgs([]string{"threads", "resolve-all", "--repo", "octo/demo", "3"})
+	root.SetArgs([]string{"threads", "resolve-all", "--repo", "octo/demo", "--commit", "def5678", "3"})
 
 	err := root.Execute()
 	require.NoError(t, err)
@@ -441,4 +456,102 @@ func TestResolveCommandWithHexSHACommit(t *testing.T) {
 	assert.Equal(t, "T_sha", payload["thread_node_id"])
 	assert.Equal(t, true, payload["is_resolved"])
 	assert.Contains(t, payload["reply_body"], "abc1234")
+}
+
+// ─── Validation gate tests ──────────────────────────────────────────────────
+
+func TestResolveRejectsWithoutCommitOrThumbsDown(t *testing.T) {
+	root := newRootCommand()
+	root.SetOut(&bytes.Buffer{})
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"threads", "resolve", "--thread-id", "T_thread", "--repo", "octo/demo", "9"})
+
+	err := root.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must provide --commit")
+}
+
+func TestResolveAcceptsThumbsDownWithoutCommit(t *testing.T) {
+	originalFactory := apiClientFactory
+	defer func() { apiClientFactory = originalFactory }()
+
+	var reactCalled bool
+	var reactContent string
+	fake := &commandFakeAPI{}
+	fake.restFunc = func(method, path string, params map[string]string, body interface{}, result interface{}) error {
+		return errors.New("unexpected REST call")
+	}
+	fake.graphqlFunc = func(query string, variables map[string]interface{}, result interface{}) error {
+		switch {
+		case strings.Contains(query, "ThreadDetails"):
+			return assignJSON(result, map[string]interface{}{
+				"node": map[string]interface{}{
+					"id": "T_td", "isResolved": false,
+					"viewerCanResolve": true, "viewerCanUnresolve": false,
+					"comments": map[string]interface{}{
+						"nodes": []map[string]interface{}{
+							{"id": "C_td_first"},
+						},
+					},
+				},
+			})
+		case strings.Contains(query, "addPullRequestReviewThreadReply"):
+			return nil
+		case strings.Contains(query, "resolveReviewThread"):
+			return assignJSON(result, map[string]interface{}{
+				"resolveReviewThread": map[string]interface{}{
+					"thread": map[string]interface{}{"id": "T_td", "isResolved": true},
+				},
+			})
+		case strings.Contains(query, "addReaction"):
+			reactCalled = true
+			if c, ok := variables["content"].(string); ok {
+				reactContent = c
+			}
+			return nil
+		default:
+			return errors.New("unexpected query")
+		}
+	}
+	apiClientFactory = func(host string) ghcli.API { return fake }
+
+	root := newRootCommand()
+	stdout := &bytes.Buffer{}
+	root.SetOut(stdout)
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"threads", "resolve", "--thread-id", "T_td", "--react", "thumbs_down", "--message", "not a bug", "--repo", "octo/demo", "9"})
+
+	err := root.Execute()
+	require.NoError(t, err)
+
+	assert.True(t, reactCalled, "addReaction should have been called")
+	assert.Equal(t, "THUMBS_DOWN", reactContent)
+
+	var payload map[string]interface{}
+	require.NoError(t, json.Unmarshal(stdout.Bytes(), &payload))
+	assert.Equal(t, "T_td", payload["thread_node_id"])
+	assert.Equal(t, true, payload["is_resolved"])
+	assert.Equal(t, "THUMBS_DOWN", payload["reaction"])
+}
+
+func TestResolveRejectsInvalidReaction(t *testing.T) {
+	root := newRootCommand()
+	root.SetOut(&bytes.Buffer{})
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"threads", "resolve", "--thread-id", "T_thread", "--react", "invalid", "--repo", "octo/demo", "9"})
+
+	err := root.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--react: invalid reaction")
+}
+
+func TestResolveAllRejectsWithoutCommit(t *testing.T) {
+	root := newRootCommand()
+	root.SetOut(&bytes.Buffer{})
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"threads", "resolve-all", "--repo", "octo/demo", "3"})
+
+	err := root.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--commit is required for resolve-all")
 }
