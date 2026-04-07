@@ -120,7 +120,7 @@ func isNumeric(selector string) bool {
 
 func splitRepo(repoFlag string) (string, string, error) {
 	if repoFlag == "" {
-		return "", "", errors.New("missing --repo")
+		return "", "", errors.New("--repo must be owner/repo when using numeric selectors, or run from a git repository to infer automatically")
 	}
 	parts := strings.Split(repoFlag, "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
