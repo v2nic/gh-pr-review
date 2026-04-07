@@ -62,6 +62,10 @@ type UpdateCommentInput struct {
 	Body      string
 }
 
+type DeleteCommentInput struct {
+	CommentID string
+}
+
 // NewService constructs a review Service.
 func NewService(api ghcli.API) *Service {
 	return &Service{API: api}
@@ -295,6 +299,35 @@ func (s *Service) currentViewer() (string, error) {
 	}
 
 	return login, nil
+}
+
+func (s *Service) DeleteComment(_ resolver.Identity, input DeleteCommentInput) error {
+	commentID := strings.TrimSpace(input.CommentID)
+	if commentID == "" {
+		return errors.New("comment id is required")
+	}
+	if !strings.HasPrefix(commentID, "PRRC_") {
+		return fmt.Errorf("invalid comment id %q: must be a GraphQL node id (PRRC_...)", input.CommentID)
+	}
+
+	const mutation = `mutation($input:DeletePullRequestReviewCommentInput!){
+  deletePullRequestReviewComment(input:$input){
+    pullRequestReview { id }
+  }
+}`
+
+	variables := map[string]interface{}{
+		"input": map[string]interface{}{
+			"id": commentID,
+		},
+	}
+
+	var resp struct{}
+	if err := s.API.GraphQL(mutation, variables, &resp); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *Service) pullRequestIdentifiers(pr resolver.Identity) (string, string, error) {
