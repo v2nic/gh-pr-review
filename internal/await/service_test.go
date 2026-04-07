@@ -258,7 +258,7 @@ func TestParseMode(t *testing.T) {
 	}
 }
 
-func TestWorkConditions(t *testing.T) {
+func TestConditions(t *testing.T) {
 	t.Run("all mode - clean PR", func(t *testing.T) {
 		pr := &PullRequest{
 			Mergeable: "MERGEABLE",
@@ -281,7 +281,7 @@ func TestWorkConditions(t *testing.T) {
 				},
 			},
 		}
-		assert.Empty(t, WorkConditions(pr, ModeAll))
+		assert.Empty(t, Conditions(pr, ModeAll))
 	})
 
 	t.Run("all mode - has unresolved", func(t *testing.T) {
@@ -293,13 +293,13 @@ func TestWorkConditions(t *testing.T) {
 				},
 			},
 		}
-		conds := WorkConditions(pr, ModeAll)
+		conds := Conditions(pr, ModeAll)
 		assert.Contains(t, conds, "unresolved-threads")
 	})
 
 	t.Run("all mode - has conflicts", func(t *testing.T) {
 		pr := &PullRequest{Mergeable: "CONFLICTING"}
-		conds := WorkConditions(pr, ModeAll)
+		conds := Conditions(pr, ModeAll)
 		assert.Contains(t, conds, "conflicts")
 	})
 
@@ -319,7 +319,7 @@ func TestWorkConditions(t *testing.T) {
 				},
 			},
 		}
-		conds := WorkConditions(pr, ModeAll)
+		conds := Conditions(pr, ModeAll)
 		assert.Contains(t, conds, "actions:failing")
 	})
 
@@ -332,7 +332,7 @@ func TestWorkConditions(t *testing.T) {
 				},
 			},
 		}
-		conds := WorkConditions(pr, ModeComments)
+		conds := Conditions(pr, ModeComments)
 		assert.Contains(t, conds, "unresolved-threads")
 		assert.NotContains(t, conds, "conflicts")
 	})
@@ -346,7 +346,7 @@ func TestWorkConditions(t *testing.T) {
 				},
 			},
 		}
-		conds := WorkConditions(pr, ModeConflicts)
+		conds := Conditions(pr, ModeConflicts)
 		assert.Contains(t, conds, "conflicts")
 		assert.NotContains(t, conds, "unresolved-threads")
 	})

@@ -1,6 +1,8 @@
 package await
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -14,7 +16,7 @@ type Service struct {
 	API ghcli.API
 }
 
-// AWAIT_QUERY fetches PR data needed for polling.
+// AWAIT_QUERY fetches PR data needed for polling with pagination.
 const AWAIT_QUERY = `query AwaitPR(
   $owner: String!,
   $repo: String!,
@@ -30,6 +32,7 @@ const AWAIT_QUERY = `query AwaitPR(
     pullRequest(number: $number) {
       comments: comments(first: $firstComments) {
         nodes { id body author { login } createdAt }
+        pageInfo { hasNextPage endCursor }
       }
       reviewThreads: reviewThreads(first: $firstThreads) {
         nodes {
@@ -38,8 +41,10 @@ const AWAIT_QUERY = `query AwaitPR(
           isOutdated
           comments(first: $firstReviewComments) {
             nodes { id body author { login } createdAt }
+            pageInfo { hasNextPage endCursor }
           }
         }
+        pageInfo { hasNextPage endCursor }
       }
       mergeable
       mergeStateStatus
@@ -77,28 +82,35 @@ type QueryResponse struct {
 
 // PullRequest contains PR data for polling.
 type PullRequest struct {
-	Comments      CommentNodes  `json:"comments"`
-	ReviewThreads ThreadNodes   `json:"reviewThreads"`
-	Mergeable     string        `json:"mergeable"`
-	MergeState   string        `json:"mergeStateStatus"`
-	Commits      CommitNodes   `json:"commits"`
+	Comments      CommentNodes `json:"comments"`
+	ReviewThreads ThreadNodes  `json:"reviewThreads"`
+	Mergeable     string       `json:"mergeable"`
+	MergeState    string       `json:"mergeStateStatus"`
+	Commits       CommitNodes   `json:"commits"`
 }
 
 type CommentNodes struct {
-	Nodes []Comment `json:"nodes"`
+	Nodes    []Comment `json:"nodes"`
+	PageInfo PageInfo  `json:"pageInfo"`
+}
+
+type PageInfo struct {
+	HasNextPage bool   `json:"hasNextPage"`
+	EndCursor   string `json:"endCursor"`
 }
 
 type Comment struct {
-	ID     string `json:"id"`
-	Body   string `json:"body"`
-	Author struct {
+	ID        string `json:"id"`
+	Body      string `json:"body"`
+	Author    struct {
 		Login string `json:"login"`
 	} `json:"author"`
 	CreatedAt string `json:"createdAt"`
 }
 
 type ThreadNodes struct {
-	Nodes []ReviewThread `json:"nodes"`
+	Nodes    []ReviewThread `json:"nodes"`
+	PageInfo PageInfo       `json:"pageInfo"`
 }
 
 type ReviewThread struct {
@@ -109,7 +121,8 @@ type ReviewThread struct {
 }
 
 type ReviewComments struct {
-	Nodes []Comment `json:"nodes"`
+	Nodes    []Comment `json:"nodes"`
+	PageInfo PageInfo  `json:"pageInfo"`
 }
 
 type CommitNodes struct {
@@ -129,11 +142,11 @@ type SuiteNodes struct {
 }
 
 type CheckSuite struct {
-	ID         string     `json:"id"`
-	Conclusion string     `json:"conclusion"`
-	Status     string     `json:"status"`
-	App        AppInfo    `json:"app"`
-	CheckRuns  RunNodes   `json:"checkRuns"`
+	ID         string   `json:"id"`
+	Conclusion string   `json:"conclusion"`
+	Status     string   `json:"status"`
+	App        AppInfo  `json:"app"`
+	CheckRuns  RunNodes `json:"checkRuns"`
 }
 
 type AppInfo struct {
@@ -156,14 +169,14 @@ func (s *Service) Fetch(identity *resolver.Identity, number int) (*QueryResponse
 	var result QueryResponse
 	err := s.API.GraphQL(AWAIT_QUERY, map[string]interface{}{
 		"owner":                identity.Owner,
-		"repo":                 identity.Repo,
-		"number":               number,
-		"firstComments":        50,
-		"firstThreads":         100,
-		"firstReviews":        50,
-		"firstReviewComments":  50,
-		"firstCheckSuites":    50,
-		"firstChecks":          100,
+		"repo":                identity.Repo,
+		"number":              number,
+		"firstComments":       100,
+		"firstThreads":        100,
+		"firstReviews":        100,
+		"firstReviewComments": 100,
+		"firstCheckSuites":    100,
+		"firstChecks":         100,
 	}, &result)
 	if err != nil {
 		return nil, err
@@ -281,8 +294,8 @@ func ParseMode(s string) (Mode, error) {
 	}
 }
 
-// WorkConditions returns conditions that need attention.
-func WorkConditions(pr *PullRequest, mode Mode) []string {
+// Conditions returns conditions that need attention.
+func Conditions(pr *PullRequest, mode Mode) []string {
 	var conditions []string
 
 	if mode == ModeAll || mode == ModeComments {
@@ -306,15 +319,6 @@ func WorkConditions(pr *PullRequest, mode Mode) []string {
 	return conditions
 }
 
-// ExitCode represents the script exit code.
-type ExitCode int
-
-const (
-	ExitWork   ExitCode = 0 // Work detected
-	ExitClean  ExitCode = 1 // Nothing to do
-	ExitError  ExitCode = 2 // Input error or API failure
-)
-
 // SecondsToHuman converts seconds to human-readable string.
 func SecondsToHuman(seconds int) string {
 	if seconds >= 86400 {
@@ -332,4 +336,125 @@ func SecondsToHuman(seconds int) string {
 // Now returns current timestamp formatted as HH:MM:SS.
 func Now() string {
 	return time.Now().Format("15:04:05")
+}
+
+// ExitCode represents the script exit code.
+type ExitCode int
+
+const (
+	ExitWork    ExitCode = 0 // Work detected
+	ExitTimeout ExitCode = 2 // Timed out with no work
+	ExitError   ExitCode = 1 // Error occurred
+)
+
+// Result represents the await polling result for JSON output.
+type Result struct {
+	Conditions []string `json:"conditions,omitempty"`
+	Unresolved int      `json:"unresolved_threads"`
+	General    int      `json:"general_comments"`
+	Conflicts  bool     `json:"has_conflicts"`
+	Failing    []string `json:"failing_checks"`
+	Pending    []string `json:"pending_checks"`
+	TimedOut   bool     `json:"timed_out"`
+	Cancelled  bool     `json:"cancelled"`
+	WatchedMs  int64    `json:"watched_ms"`
+}
+
+// WatchOptions configures the watch behavior.
+type WatchOptions struct {
+	Interval time.Duration
+	Debounce time.Duration
+	Timeout  time.Duration
+	Mode     Mode
+}
+
+// Watch polls until work is detected, with debouncing and signal handling.
+func (s *Service) Watch(ctx context.Context, identity *resolver.Identity, opts WatchOptions) (*Result, error) {
+	startTime := time.Now()
+
+	// Create timeout context
+	timeoutCtx, cancel := context.WithTimeout(ctx, opts.Timeout)
+	defer cancel()
+
+	// Get initial state
+	initialResult, err := s.Fetch(identity, identity.Number)
+	if err != nil {
+		return nil, fmt.Errorf("fetch initial state: %w", err)
+	}
+
+	pr := initialResult.Repository.PullRequest
+	initialConditions := Conditions(pr, opts.Mode)
+	if len(initialConditions) > 0 {
+		return buildResult(pr, initialConditions, false, false, startTime), nil
+	}
+
+	// Track last seen state for comparison
+	lastConditions := initialConditions
+
+	var (
+		debounceTimer *time.Timer
+		debounceCh    <-chan time.Time
+		ticker        = time.NewTicker(opts.Interval)
+	)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeoutCtx.Done():
+			// Check if cancelled by user or timed out
+			if errors.Is(ctx.Err(), context.Canceled) {
+				return buildResult(pr, lastConditions, false, true, startTime), nil
+			}
+			return buildResult(pr, lastConditions, true, false, startTime), nil
+
+		case <-ticker.C:
+			currentResult, err := s.Fetch(identity, identity.Number)
+			if err != nil {
+				return nil, fmt.Errorf("fetch: %w", err)
+			}
+
+			pr = currentResult.Repository.PullRequest
+			currentConditions := Conditions(pr, opts.Mode)
+
+			// Check if conditions changed
+			if len(currentConditions) > 0 {
+				// Stop existing debounce timer
+				if debounceTimer != nil {
+					if !debounceTimer.Stop() {
+						select {
+						case <-debounceTimer.C:
+						default:
+						}
+					}
+				}
+
+				// Start new debounce timer
+				debounceTimer = time.NewTimer(opts.Debounce)
+				debounceCh = debounceTimer.C
+				lastConditions = currentConditions
+			}
+
+		case <-debounceCh:
+			// Debounce fired - conditions have stabilized
+			return buildResult(pr, lastConditions, false, false, startTime), nil
+
+		case <-ctx.Done():
+			// User cancelled
+			return buildResult(pr, lastConditions, false, true, startTime), nil
+		}
+	}
+}
+
+func buildResult(pr *PullRequest, conditions []string, timedOut, cancelled bool, startTime time.Time) *Result {
+	return &Result{
+		Conditions: conditions,
+		Unresolved: CountUnresolvedThreads(pr),
+		General:    len(pr.Comments.Nodes),
+		Conflicts:  HasConflicts(pr),
+		Failing:    FailingChecks(pr),
+		Pending:    PendingChecks(pr),
+		TimedOut:   timedOut,
+		Cancelled:  cancelled,
+		WatchedMs:  time.Since(startTime).Milliseconds(),
+	}
 }
