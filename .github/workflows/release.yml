@@ -28,12 +28,19 @@ jobs:
             echo "Unable to determine tag name"; exit 1
           fi
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --generate-notes
-      - uses: cli/gh-extension-precompile@v2
+      - uses: cli/gh-extension-precompile@v2.1.0
         with:
           go_version_file: go.mod
-          targets: |
-            macOS-amd64
-            macOS-arm64
-            linux-amd64
-            linux-arm64
-            windows-amd64
+          build_script_override: |
+            #!/bin/bash
+            set -e
+            go build -o gh-pr-review .
+            zip gh-pr-review-windows-amd64.zip gh-pr-review.exe
+            GOOS=darwin GOARCH=amd64 go build -o gh-pr-review-darwin-amd64 .
+            GOOS=darwin GOARCH=arm64 go build -o gh-pr-review-darwin-arm64 .
+            GOOS=linux GOARCH=amd64 go build -o gh-pr-review-linux-amd64 .
+            GOOS=linux GOARCH=arm64 go build -o gh-pr-review-linux-arm64 .
+            zip gh-pr-review-darwin-amd64.zip gh-pr-review-darwin-amd64
+            zip gh-pr-review-darwin-arm64.zip gh-pr-review-darwin-arm64
+            zip gh-pr-review-linux-amd64.zip gh-pr-review-linux-amd64
+            zip gh-pr-review-linux-arm64.zip gh-pr-review-linux-arm64
