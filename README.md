@@ -1,7 +1,6 @@
 # gh-pr-review
-[![Agyn badge](https://agyn.io/badges/badge_dark.svg)](http://agyn.io)
 
-`gh-pr-review` is a GitHub CLI extension that finally brings **inline PR review comments** and **thread inspection** to the terminal.  
+`gh-pr-review` is a GitHub CLI extension that adds **inline PR review comments** and **thread inspection** to the terminal. This is a fork of [agynio/gh-pr-review](https://github.com/agynio/gh-pr-review) with additional features.  
 GitHub’s built-in `gh` tool does *not* show inline comments, review threads, or thread grouping — but this extension does.
 
 With `gh-pr-review`, you can:
@@ -14,8 +13,7 @@ With `gh-pr-review`, you can:
 - Export structured output ideal for **LLMs and automated PR review agents**
 
 Designed for developers, DevOps teams, and AI systems that need **full pull request review context**, not just top-level comments.
-
-**Blog post:** [gh-pr-review: LLM-friendly PR review workflows in your CLI](https://agyn.io/blog/gh-pr-review-cli-agent-workflows) — explains the motivation, design principles, and CLI + JSON output examples.  
+  
 
 - [Quickstart](#quickstart)
 - [Review view](#review-view)
@@ -35,9 +33,9 @@ The quickest path from opening a pending review to resolving threads:
 1. **Install or upgrade the extension.**
 
    ```sh
-   gh extension install agynio/gh-pr-review
+   gh extension install v2nic/gh-pr-review
    # Update an existing installation
-   gh extension upgrade agynio/gh-pr-review
+   gh extension upgrade v2nic/gh-pr-review
    ```
 
 
@@ -364,7 +362,7 @@ Each command binds to a single GitHub backend—there are no runtime fallbacks.
 To add gh-pr-review as a skill to your AI coding agent:
 
 ```sh
-npx @vercel/add-skill https://github.com/agynio/gh-pr-review
+npx @vercel/add-skill https://github.com/v2nic/gh-pr-review
 ```
 
 This command will:
