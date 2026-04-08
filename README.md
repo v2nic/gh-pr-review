@@ -227,12 +227,12 @@ gh pr-review review view -R owner/repo --pr 3
 gh pr-review review view
 ```
 
-Install or upgrade to **v1.6.0 or newer** (GraphQL-only thread resolution and minimal comment replies):
+Install or upgrade the extension:
 
 ```sh
-gh extension install agynio/gh-pr-review
+gh extension install v2nic/gh-pr-review
 # Update an existing installation
-gh extension upgrade agynio/gh-pr-review
+gh extension upgrade v2nic/gh-pr-review
 ```
 
 ### Command behavior
