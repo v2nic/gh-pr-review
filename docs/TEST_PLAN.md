@@ -65,6 +65,7 @@ gh pr-review draft list --repo <username>/gh-pr-review-test
 ## Expected Output Format
 
 ### Thread Output
+
 ```json
 {
   "thread_id": "PRRT_...",
@@ -77,6 +78,7 @@ gh pr-review draft list --repo <username>/gh-pr-review-test
 ```
 
 ### Draft Status Output
+
 ```json
 {
   "pr_number": 1,
@@ -86,6 +88,7 @@ gh pr-review draft list --repo <username>/gh-pr-review-test
 ```
 
 ### Draft Action Output
+
 ```json
 {
   "pr_number": 1,
@@ -95,6 +98,7 @@ gh pr-review draft list --repo <username>/gh-pr-review-test
 ```
 
 ### Draft List Output
+
 ```json
 [
   {

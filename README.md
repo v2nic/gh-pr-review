@@ -38,9 +38,9 @@ npx skills add v2nic/gh-pr-review
 | Command                         | Description                                                           |
 | ------------------------------- | --------------------------------------------------------------------- |
 | `await`                         | Poll a PR until it needs attention (comments, conflicts, CI failures) |
-| `draft status`                  | Check if a pull request is a draft                                   |
-| `draft mark`                    | Mark a pull request as draft                                         |
-| `draft ready`                   | Mark a pull request as ready for review                              |
+| `draft status`                  | Check if a pull request is a draft                                    |
+| `draft mark`                    | Mark a pull request as draft                                          |
+| `draft ready`                   | Mark a pull request as ready for review                               |
 | `draft list`                    | List all draft pull requests in the repository                        |
 | `review --start`                | Opens a pending review                                                |
 | `review --add-comment`          | Adds inline comment (requires `PRR_…` review node ID)                 |
