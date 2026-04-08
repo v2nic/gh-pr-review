@@ -257,7 +257,7 @@ For the full canonical response structure, see docs/SCHEMAS.md.
 | `--unresolved` | Keep only unresolved threads. |
 | `--not_outdated` | Exclude threads marked as outdated. |
 | `--tail <n>` | Retain only the last `n` replies per thread (0 = all). The parent inline comment is always kept; only replies are trimmed. |
-| `--include-comment-node-id` | Add GraphQL comment node identifiers to parent comments and replies. |
+| `--include-comment-node-id` | Add comment node identifiers to parent comments and replies. |
 
 Commands that accept `--body` also support `--body-file <path>` to read body
 text from a file. Use `--body-file -` to read from stdin. The two flags are
@@ -304,28 +304,23 @@ See [docs/USAGE.md](USAGE#threads-view) for full details, options, and output ex
 
 ## Backend policy
 
-Each command binds to a single GitHub backend—there are no runtime fallbacks.
-
-| Command | Backend | Notes |
-| --- | --- | --- |
-| `review --start` | GraphQL | Opens a pending review via `addPullRequestReview`. |
-| `review --add-comment` | GraphQL | Requires a `PRR_…` review node ID. |
-| `review --edit-comment` | GraphQL | Updates a comment in a pending review via `updatePullRequestReviewComment`; requires a `PRRC_…` comment node ID and new `--body`. |
-| `review view` | GraphQL | Aggregates reviews, inline comments, and replies (used for thread IDs). |
-| `review --submit` | GraphQL | Finalizes a pending review via `submitPullRequestReview` using the `PRR_…` review node ID (executed through the internal `gh api graphql` wrapper). |
-| `comments reply` | GraphQL | Replies via `addPullRequestReviewThreadReply`; supply `--review-id` when responding from a pending review. |
-| `threads list` | GraphQL | Enumerates review threads for the pull request. |
-| `threads resolve` / `unresolve` | GraphQL | Mutates thread resolution via `resolveReviewThread` / `unresolveReviewThread`; supply GraphQL thread node IDs (`PRRT_…`). |
+| Command | Description |
+| --- | --- |
+| `review --start` | Opens a pending review |
+| `review --add-comment` | Requires a `PRR_…` review node ID |
+| `review --edit-comment` | Updates a comment in a pending review |
+| `review view` | Aggregates reviews, inline comments, and replies |
+| `review --submit` | Finalizes a pending review |
+| `comments reply` | Replies to a review thread |
+| `threads list` | Lists review threads for the pull request |
+| `threads resolve` / `unresolve` | Resolves or unresolves review threads |
 
 
 ## Additional docs
 
-- [docs/USAGE.md](docs/USAGE.md) — Command-by-command inputs, outputs, and
-  examples for v1.6.0.
-- [docs/SCHEMAS.md](docs/SCHEMAS.md) — JSON schemas for each structured
-  response (optional fields omitted rather than set to null).
-- [docs/AGENTS.md](docs/AGENTS.md) — Agent-focused workflows, prompts, and
-  best practices.
+- [docs/USAGE.md](docs/USAGE.md) — Command-by-command inputs, outputs, and examples.
+- [docs/SCHEMAS.md](docs/SCHEMAS.md) — JSON schemas for each structured response.
+- [skills/gh-pr-review/SKILL.md](skills/gh-pr-review/SKILL.md) — Agent-focused workflows and best practices.
 
 ## Design for LLMs & Automated Agents
 
