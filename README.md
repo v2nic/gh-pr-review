@@ -1,7 +1,6 @@
 # gh-pr-review
-[![Agyn badge](https://agyn.io/badges/badge_dark.svg)](http://agyn.io)
 
-`gh-pr-review` is a GitHub CLI extension that finally brings **inline PR review comments** and **thread inspection** to the terminal.  
+`gh-pr-review` is a GitHub CLI extension that adds **inline PR review comments** and **thread inspection** to the terminal. This is a fork of [agynio/gh-pr-review](https://github.com/agynio/gh-pr-review) with additional features.  
 GitHub’s built-in `gh` tool does *not* show inline comments, review threads, or thread grouping — but this extension does.
 
 With `gh-pr-review`, you can:
@@ -15,7 +14,8 @@ With `gh-pr-review`, you can:
 
 Designed for developers, DevOps teams, and AI systems that need **full pull request review context**, not just top-level comments.
 
-**Blog post:** [gh-pr-review: LLM-friendly PR review workflows in your CLI](https://agyn.io/blog/gh-pr-review-cli-agent-workflows) — explains the motivation, design principles, and CLI + JSON output examples.  
+**Blog post:** [gh-pr-review: LLM-friendly PR review workflows in your CLI](https://agyn.io/blog/gh-pr-review-cli-agent-workflows)
+  
 
 - [Quickstart](#quickstart)
 - [Review view](#review-view)
@@ -35,14 +35,13 @@ The quickest path from opening a pending review to resolving threads:
 1. **Install or upgrade the extension.**
 
    ```sh
-   gh extension install agynio/gh-pr-review
+   gh extension install v2nic/gh-pr-review
    # Update an existing installation
-   gh extension upgrade agynio/gh-pr-review
+   gh extension upgrade v2nic/gh-pr-review
    ```
 
 
-2. **Start a pending review (GraphQL).** Capture the returned `id` (GraphQL
-   node). When run inside a git repository, `-R owner/repo` and the PR number
+2. **Start a pending review.** Capture the returned `id`. When run inside a git repository, `-R owner/repo` and the PR number
    are inferred automatically from the git remote and current branch.
 
    ```sh
@@ -60,9 +59,8 @@ The quickest path from opening a pending review to resolving threads:
 
    Pending reviews omit `submitted_at`; the field appears after submission.
 
-3. **Add inline comments with the pending review ID (GraphQL).** The
-   `review --add-comment` command fails fast if you supply a numeric ID instead
-   of the required `PRR_…` GraphQL identifier.
+3. **Add inline comments with the pending review ID.** The `review
+   --add-comment` command requires a `PRR_…` review node ID.
 
    ```sh
    gh pr-review review --add-comment \
@@ -100,8 +98,7 @@ The quickest path from opening a pending review to resolving threads:
      "path": "internal/service.go",
      "is_outdated": false,
      "line": 42
-   }
-   ```
+   }```
 
    **Edit comments before submission (optional).** Use `--edit-comment` with
    a comment node ID (`PRRC_…`) and new `--body` to update a comment:
@@ -117,8 +114,8 @@ The quickest path from opening a pending review to resolving threads:
    }
    ```
 
-4. **Inspect review threads (GraphQL).** `review view` surfaces pending
-   review summaries, thread state, and inline comment metadata. Thread IDs are
+4. **Inspect review threads.** `review view` surfaces pending review
+   summaries, thread state, and inline comment metadata. Thread IDs are
    always included; enable `--include-comment-node-id` when you also need the
    individual comment node identifiers.
 
@@ -159,10 +156,8 @@ The quickest path from opening a pending review to resolving threads:
      -R owner/repo 42
    ```
 
-5. **Submit the review (GraphQL).** Reuse the pending review `PRR_…`
-   identifier when finalizing. Successful submissions emit a status-only
-   payload. GraphQL-level errors are returned as structured JSON for
-   troubleshooting.
+5. **Submit the review.** Reuse the pending review `PRR_…` identifier when
+   finalizing. Successful submissions emit a status-only payload.
 
    ```sh
    gh pr-review review --submit \
@@ -176,7 +171,7 @@ The quickest path from opening a pending review to resolving threads:
    }
    ```
 
-   On GraphQL errors, the command exits non-zero after emitting:
+   On errors, the command exits non-zero after emitting:
 
    ```json
    {
@@ -187,8 +182,8 @@ The quickest path from opening a pending review to resolving threads:
    }
    ```
 
-6. **Inspect and resolve threads (GraphQL).** Array responses are always `[]`
-   when no threads match.
+6. **Inspect and resolve threads.** Array responses are always `[]` when no
+   threads match.
 
    ```sh
    gh pr-review threads list --unresolved --mine -R owner/repo 42
@@ -215,8 +210,7 @@ The quickest path from opening a pending review to resolving threads:
 
 ## Review view
 
-`gh pr-review review view` emits a GraphQL-only snapshot of pull request
-discussion. The response groups reviews → parent inline comments → thread
+`gh pr-review review view` emits a snapshot of pull request discussion. The response groups reviews → parent inline comments → thread
 replies, omitting optional fields entirely instead of returning `null`.
 
 Run it with either a combined selector or explicit flags. When inside a git
@@ -230,17 +224,17 @@ gh pr-review review view -R owner/repo --pr 3
 gh pr-review review view
 ```
 
-Install or upgrade to **v1.6.0 or newer** (GraphQL-only thread resolution and minimal comment replies):
+Install or upgrade the extension:
 
 ```sh
-gh extension install agynio/gh-pr-review
+gh extension install v2nic/gh-pr-review
 # Update an existing installation
-gh extension upgrade agynio/gh-pr-review
+gh extension upgrade v2nic/gh-pr-review
 ```
 
 ### Command behavior
 
-- Single GraphQL operation per invocation (no REST mixing).
+- Single operation per invocation.
 - Includes all reviewers, review states, and threads by default.
 - Replies are sorted by `created_at` ascending.
 - Output exposes `author_login` only—no user objects or `html_url` fields.
@@ -260,7 +254,7 @@ For the full canonical response structure, see docs/SCHEMAS.md.
 | `--unresolved` | Keep only unresolved threads. |
 | `--not_outdated` | Exclude threads marked as outdated. |
 | `--tail <n>` | Retain only the last `n` replies per thread (0 = all). The parent inline comment is always kept; only replies are trimmed. |
-| `--include-comment-node-id` | Add GraphQL comment node identifiers to parent comments and replies. |
+| `--include-comment-node-id` | Add comment node identifiers to parent comments and replies. |
 
 Commands that accept `--body` also support `--body-file <path>` to read body
 text from a file. Use `--body-file -` to read from stdin. The two flags are
@@ -303,32 +297,27 @@ gh pr-review comments reply 3 -R owner/repo \
 gh pr-review threads view PRRT_XXXXXXX [PRRT_XXXXXXX...]
 ```
 
-See [docs/USAGE.md](USAGE#threads-view) for full details, options, and output examples.
+See [skills/references/USAGE.md](skills/references/USAGE.md) for full details.
 
 ## Backend policy
 
-Each command binds to a single GitHub backend—there are no runtime fallbacks.
-
-| Command | Backend | Notes |
-| --- | --- | --- |
-| `review --start` | GraphQL | Opens a pending review via `addPullRequestReview`. |
-| `review --add-comment` | GraphQL | Requires a `PRR_…` review node ID. |
-| `review --edit-comment` | GraphQL | Updates a comment in a pending review via `updatePullRequestReviewComment`; requires a `PRRC_…` comment node ID and new `--body`. |
-| `review view` | GraphQL | Aggregates reviews, inline comments, and replies (used for thread IDs). |
-| `review --submit` | GraphQL | Finalizes a pending review via `submitPullRequestReview` using the `PRR_…` review node ID (executed through the internal `gh api graphql` wrapper). |
-| `comments reply` | GraphQL | Replies via `addPullRequestReviewThreadReply`; supply `--review-id` when responding from a pending review. |
-| `threads list` | GraphQL | Enumerates review threads for the pull request. |
-| `threads resolve` / `unresolve` | GraphQL | Mutates thread resolution via `resolveReviewThread` / `unresolveReviewThread`; supply GraphQL thread node IDs (`PRRT_…`). |
+| Command | Description |
+| --- | --- |
+| `review --start` | Opens a pending review |
+| `review --add-comment` | Requires a `PRR_…` review node ID |
+| `review --edit-comment` | Updates a comment in a pending review |
+| `review view` | Aggregates reviews, inline comments, and replies |
+| `review --submit` | Finalizes a pending review |
+| `comments reply` | Replies to a review thread |
+| `threads list` | Lists review threads for the pull request |
+| `threads resolve` / `unresolve` | Resolves or unresolves review threads |
 
 
 ## Additional docs
 
-- [docs/USAGE.md](docs/USAGE.md) — Command-by-command inputs, outputs, and
-  examples for v1.6.0.
-- [docs/SCHEMAS.md](docs/SCHEMAS.md) — JSON schemas for each structured
-  response (optional fields omitted rather than set to null).
-- [docs/AGENTS.md](docs/AGENTS.md) — Agent-focused workflows, prompts, and
-  best practices.
+- [skills/references/USAGE.md](skills/references/USAGE.md) — Command reference
+- [docs/SCHEMAS.md](docs/SCHEMAS.md) — JSON schemas for each structured response.
+- [skills/gh-pr-review/SKILL.md](skills/gh-pr-review/SKILL.md) — Agent-focused workflows and best practices.
 
 ## Design for LLMs & Automated Agents
 
@@ -365,7 +354,7 @@ Each command binds to a single GitHub backend—there are no runtime fallbacks.
 To add gh-pr-review as a skill to your AI coding agent:
 
 ```sh
-npx @vercel/add-skill https://github.com/agynio/gh-pr-review
+npx @vercel/add-skill https://github.com/v2nic/gh-pr-review
 ```
 
 This command will:

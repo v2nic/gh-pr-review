@@ -1,4 +1,4 @@
-# Output schemas (v1.6.0)
+# Output schemas
 
 Optional fields are omitted entirely (never serialized as `null`). Unless noted,
 schemas disallow additional properties to surface unexpected payload changes.
@@ -16,7 +16,7 @@ Used by `review --start` and `review --submit`.
   "properties": {
     "id": {
       "type": "string",
-      "description": "GraphQL review node identifier (PRR_…)"
+      "description": "review node identifier (PRR_…)"
     },
     "state": {
       "type": "string",
@@ -45,7 +45,7 @@ Produced by `review --add-comment`.
   "properties": {
     "id": {
       "type": "string",
-      "description": "GraphQL review thread node identifier"
+      "description": "review thread node identifier"
     },
     "path": {
       "type": "string",
@@ -129,11 +129,11 @@ Emitted by `review view`.
       "properties": {
         "thread_id": {
           "type": "string",
-          "description": "GraphQL review thread identifier"
+          "description": "review thread identifier"
         },
         "comment_node_id": {
           "type": "string",
-          "description": "GraphQL comment node identifier when requested"
+          "description": "comment node identifier when requested"
         },
         "path": {
           "type": "string"
@@ -173,7 +173,7 @@ Emitted by `review view`.
       "properties": {
         "comment_node_id": {
           "type": "string",
-          "description": "GraphQL comment node identifier when requested"
+          "description": "comment node identifier when requested"
         },
         "author_login": {
           "type": "string"
@@ -205,7 +205,7 @@ Returned by `comments reply`.
   "properties": {
     "comment_node_id": {
       "type": "string",
-      "description": "GraphQL comment node identifier"
+      "description": "comment node identifier"
     }
   },
   "additionalProperties": false
