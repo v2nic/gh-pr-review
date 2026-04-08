@@ -4,6 +4,12 @@ A GitHub CLI extension for inline PR review comments and thread inspection in th
 
 This fork of [agynio/gh-pr-review](https://github.com/agynio/gh-pr-review) adds features for developers, DevOps teams, and AI systems that need complete pull request review context.
 
+## Contributors
+
+This repository incorporates contributions from the upstream project's pull requests, which appeared to be unmaintained. The following contributors authored the original work that has been integrated: @casey-brooks @rowan-stein @Benkovichnikita @highb @EurFelux @rileychh @player3 @squirrel289
+
+Pull requests are welcome.
+
 **Blog post:** [gh-pr-review: LLM-friendly PR review workflows in your CLI](https://agyn.io/blog/gh-pr-review-cli-agent-workflows)
 
 ## Features
