@@ -6,7 +6,7 @@ This fork of [agynio/gh-pr-review](https://github.com/agynio/gh-pr-review) adds 
 
 ## Contributors
 
-This repository incorporates contributions from the upstream project's pull requests, which appeared to be unmaintained. The following contributors authored the original work that has been integrated: @casey-brooks @rowan-stein @Benkovichnikita @highb @EurFelux @rileychh @player3 @squirrel289
+This repository incorporates contributions from the upstream project's pull requests, which appeared to be unmaintained. The following contributors authored the original work that has been integrated: [@casey-brooks](https://github.com/casey-brooks) [@rowan-stein](https://github.com/rowan-stein) [@Benkovichnikita](https://github.com/Benkovichnikita) [@highb](https://github.com/highb) [@EurFelux](https://github.com/EurFelux) [@rileychh](https://github.com/rileychh) [@player3](https://github.com/player3) [@squirrel289](https://github.com/squirrel289)
 
 Pull requests are welcome.
 
