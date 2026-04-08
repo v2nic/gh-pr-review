@@ -39,8 +39,7 @@ The quickest path from opening a pending review to resolving threads:
    ```
 
 
-2. **Start a pending review (GraphQL).** Capture the returned `id` (GraphQL
-   node). When run inside a git repository, `-R owner/repo` and the PR number
+2. **Start a pending review.** Capture the returned `id`. When run inside a git repository, `-R owner/repo` and the PR number
    are inferred automatically from the git remote and current branch.
 
    ```sh
@@ -58,9 +57,8 @@ The quickest path from opening a pending review to resolving threads:
 
    Pending reviews omit `submitted_at`; the field appears after submission.
 
-3. **Add inline comments with the pending review ID (GraphQL).** The
-   `review --add-comment` command fails fast if you supply a numeric ID instead
-   of the required `PRR_…` GraphQL identifier.
+3. **Add inline comments with the pending review ID.** The `review
+   --add-comment` command requires a `PRR_…` review node ID.
 
    ```sh
    gh pr-review review --add-comment \
@@ -114,8 +112,8 @@ The quickest path from opening a pending review to resolving threads:
    }
    ```
 
-4. **Inspect review threads (GraphQL).** `review view` surfaces pending
-   review summaries, thread state, and inline comment metadata. Thread IDs are
+4. **Inspect review threads.** `review view` surfaces pending review
+   summaries, thread state, and inline comment metadata. Thread IDs are
    always included; enable `--include-comment-node-id` when you also need the
    individual comment node identifiers.
 
@@ -156,10 +154,8 @@ The quickest path from opening a pending review to resolving threads:
      -R owner/repo 42
    ```
 
-5. **Submit the review (GraphQL).** Reuse the pending review `PRR_…`
-   identifier when finalizing. Successful submissions emit a status-only
-   payload. GraphQL-level errors are returned as structured JSON for
-   troubleshooting.
+5. **Submit the review.** Reuse the pending review `PRR_…` identifier when
+   finalizing. Successful submissions emit a status-only payload.
 
    ```sh
    gh pr-review review --submit \
@@ -173,7 +169,7 @@ The quickest path from opening a pending review to resolving threads:
    }
    ```
 
-   On GraphQL errors, the command exits non-zero after emitting:
+   On errors, the command exits non-zero after emitting:
 
    ```json
    {
@@ -184,8 +180,8 @@ The quickest path from opening a pending review to resolving threads:
    }
    ```
 
-6. **Inspect and resolve threads (GraphQL).** Array responses are always `[]`
-   when no threads match.
+6. **Inspect and resolve threads.** Array responses are always `[]` when no
+   threads match.
 
    ```sh
    gh pr-review threads list --unresolved --mine -R owner/repo 42
@@ -212,8 +208,7 @@ The quickest path from opening a pending review to resolving threads:
 
 ## Review view
 
-`gh pr-review review view` emits a GraphQL-only snapshot of pull request
-discussion. The response groups reviews → parent inline comments → thread
+`gh pr-review review view` emits a snapshot of pull request discussion. The response groups reviews → parent inline comments → thread
 replies, omitting optional fields entirely instead of returning `null`.
 
 Run it with either a combined selector or explicit flags. When inside a git
@@ -237,7 +232,7 @@ gh extension upgrade v2nic/gh-pr-review
 
 ### Command behavior
 
-- Single GraphQL operation per invocation (no REST mixing).
+- Single operation per invocation.
 - Includes all reviewers, review states, and threads by default.
 - Replies are sorted by `created_at` ascending.
 - Output exposes `author_login` only—no user objects or `html_url` fields.
@@ -300,7 +295,7 @@ gh pr-review comments reply 3 -R owner/repo \
 gh pr-review threads view PRRT_XXXXXXX [PRRT_XXXXXXX...]
 ```
 
-See [docs/USAGE.md](USAGE#threads-view) for full details, options, and output examples.
+See [skills/references/USAGE.md](skills/references/USAGE.md) for full details.
 
 ## Backend policy
 
@@ -318,7 +313,7 @@ See [docs/USAGE.md](USAGE#threads-view) for full details, options, and output ex
 
 ## Additional docs
 
-- [docs/USAGE.md](docs/USAGE.md) — Command-by-command inputs, outputs, and examples.
+- [skills/references/USAGE.md](skills/references/USAGE.md) — Command reference
 - [docs/SCHEMAS.md](docs/SCHEMAS.md) — JSON schemas for each structured response.
 - [skills/gh-pr-review/SKILL.md](skills/gh-pr-review/SKILL.md) — Agent-focused workflows and best practices.
 
