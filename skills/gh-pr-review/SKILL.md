@@ -30,7 +30,7 @@ This tool is particularly useful for:
 First, ensure the extension is installed:
 
 ```sh
-gh extension install agynio/gh-pr-review
+gh extension install v2nic/gh-pr-review
 ```
 
 ## Core Commands
@@ -209,6 +209,7 @@ gh pr-review review view --unresolved --not_outdated -R owner/repo --pr $(gh pr 
 
 ## Important Notes
 
+- This fork adds: `threads view`, `threads resolve-all`, `--author` filter, `--since` filter, `--commit` reply-then-resolve, and `--body-file` support.
 - All IDs use GraphQL format (PRR_... for reviews, PRRT_... for threads)
 - Commands use pure GraphQL (no REST API fallbacks)
 - Empty arrays `[]` are returned when no data matches filters
@@ -217,7 +218,7 @@ gh pr-review review view --unresolved --not_outdated -R owner/repo --pr $(gh pr 
 
 ## Documentation Links
 
-- Usage guide: docs/USAGE.md
-- JSON schemas: docs/SCHEMAS.md
-- Agent workflows: docs/AGENTS.md
-- Blog post: https://agyn.io/blog/gh-pr-review-cli-agent-workflows
+- [docs/USAGE.md](docs/USAGE.md) — Command reference
+- [docs/SCHEMAS.md](docs/SCHEMAS.md) — JSON schemas
+- [skills/references/USAGE.md](skills/references/USAGE.md) — Detailed usage examples
+- This is a fork of [agynio/gh-pr-review](https://github.com/agynio/gh-pr-review).
