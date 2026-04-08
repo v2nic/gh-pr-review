@@ -1,6 +1,7 @@
 # gh-pr-review
 
 `gh-pr-review` is a GitHub CLI extension that adds **inline PR review comments** and **thread inspection** to the terminal. This is a fork of [agynio/gh-pr-review](https://github.com/agynio/gh-pr-review) with additional features.  
+
 GitHub’s built-in `gh` tool does *not* show inline comments, review threads, or thread grouping — but this extension does.
 
 With `gh-pr-review`, you can:
