@@ -351,3 +351,24 @@ func TestBuildReportIncludeResolvedShowsResolvedThreads(t *testing.T) {
 		t.Errorf("IncludeResolved override: expected 2 threads, got %d", c2)
 	}
 }
+
+func TestBuildReportMultiplePendingReviewsNoCollision(t *testing.T) {
+	// Multiple PENDING reviews have nil DatabaseID. The builder must not
+	// collide them on key 0 in the index map — both should appear.
+	reviews := []report.Review{
+		{ID: "R1", State: report.StatePending, AuthorLogin: "alice", DatabaseID: nil},
+		{ID: "R2", State: report.StatePending, AuthorLogin: "bob", DatabaseID: nil},
+	}
+
+	result := report.BuildReport(reviews, nil, report.FilterOptions{})
+
+	if len(result.Reviews) != 2 {
+		t.Fatalf("expected 2 PENDING reviews, got %d", len(result.Reviews))
+	}
+	if result.Reviews[0].ID != "R1" {
+		t.Errorf("expected first review R1, got %s", result.Reviews[0].ID)
+	}
+	if result.Reviews[1].ID != "R2" {
+		t.Errorf("expected second review R2, got %s", result.Reviews[1].ID)
+	}
+}
