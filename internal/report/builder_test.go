@@ -19,14 +19,14 @@ func TestBuildReportAggregatesThreads(t *testing.T) {
 			Body:        &reviewBody,
 			SubmittedAt: &submittedAt,
 			AuthorLogin: "alice",
-			DatabaseID:  101,
+			DatabaseID:  intPtr(101),
 		},
 		{
 			ID:          "R2",
 			State:       report.StateCommented,
 			Body:        strPtr(""),
 			AuthorLogin: "bob",
-			DatabaseID:  202,
+			DatabaseID:  intPtr(202),
 		},
 	}
 
@@ -173,8 +173,8 @@ func TestBuildReportAggregatesThreads(t *testing.T) {
 
 func TestBuildReportFilterOptions(t *testing.T) {
 	reviews := []report.Review{
-		{ID: "R1", State: report.StateApproved, AuthorLogin: "alice", DatabaseID: 1},
-		{ID: "R2", State: report.StateChangesRequested, AuthorLogin: "bob", DatabaseID: 2},
+		{ID: "R1", State: report.StateApproved, AuthorLogin: "alice", DatabaseID: intPtr(1)},
+		{ID: "R2", State: report.StateChangesRequested, AuthorLogin: "bob", DatabaseID: intPtr(2)},
 	}
 
 	threads := []report.Thread{
@@ -260,7 +260,7 @@ func strPtr(v string) *string {
 
 func TestBuildReportAuthorFilterIncludesMatchingThreads(t *testing.T) {
 	reviews := []report.Review{
-		{ID: "R1", State: report.StateCommented, AuthorLogin: "coderabbitai", DatabaseID: 1},
+		{ID: "R1", State: report.StateCommented, AuthorLogin: "coderabbitai", DatabaseID: intPtr(1)},
 	}
 	threads := []report.Thread{
 		{
@@ -289,7 +289,7 @@ func TestBuildReportAuthorFilterIncludesMatchingThreads(t *testing.T) {
 
 func TestBuildReportAuthorFilterIsCaseInsensitive(t *testing.T) {
 	reviews := []report.Review{
-		{ID: "R1", State: report.StateCommented, AuthorLogin: "CodeRabbitAI", DatabaseID: 1},
+		{ID: "R1", State: report.StateCommented, AuthorLogin: "CodeRabbitAI", DatabaseID: intPtr(1)},
 	}
 	threads := []report.Thread{
 		{
@@ -314,7 +314,7 @@ func TestBuildReportAuthorFilterIsCaseInsensitive(t *testing.T) {
 
 func TestBuildReportIncludeResolvedShowsResolvedThreads(t *testing.T) {
 	reviews := []report.Review{
-		{ID: "R1", State: report.StateCommented, AuthorLogin: "alice", DatabaseID: 1},
+		{ID: "R1", State: report.StateCommented, AuthorLogin: "alice", DatabaseID: intPtr(1)},
 	}
 	threads := []report.Thread{
 		{
@@ -349,5 +349,26 @@ func TestBuildReportIncludeResolvedShowsResolvedThreads(t *testing.T) {
 	}
 	if c2 != 2 {
 		t.Errorf("IncludeResolved override: expected 2 threads, got %d", c2)
+	}
+}
+
+func TestBuildReportMultiplePendingReviewsNoCollision(t *testing.T) {
+	// Multiple PENDING reviews have nil DatabaseID. The builder must not
+	// collide them on key 0 in the index map — both should appear.
+	reviews := []report.Review{
+		{ID: "R1", State: report.StatePending, AuthorLogin: "alice", DatabaseID: nil},
+		{ID: "R2", State: report.StatePending, AuthorLogin: "bob", DatabaseID: nil},
+	}
+
+	result := report.BuildReport(reviews, nil, report.FilterOptions{})
+
+	if len(result.Reviews) != 2 {
+		t.Fatalf("expected 2 PENDING reviews, got %d", len(result.Reviews))
+	}
+	if result.Reviews[0].ID != "R1" {
+		t.Errorf("expected first review R1, got %s", result.Reviews[0].ID)
+	}
+	if result.Reviews[1].ID != "R2" {
+		t.Errorf("expected second review R2, got %s", result.Reviews[1].ID)
 	}
 }
