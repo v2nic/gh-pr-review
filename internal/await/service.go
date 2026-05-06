@@ -61,7 +61,7 @@ const AWAIT_QUERY = `query AwaitPR(
                     name
                     conclusion
                     status
-                    annotations(first: 50) {
+                    annotations(first: 5) {
                       nodes {
                         annotationLevel
                         message
